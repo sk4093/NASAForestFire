@@ -20,19 +20,33 @@
 
 
 
-function main()
+function main2()
 %     analysis_indonesia();
     analysis_australia();
-    %...
+    %analysis_subsaharian_africa()
+%     analysis_boreal_central_asia()
+%     analysis_south_asia()
 end
 
 %complete analysis on different regions of the globe
 function analysis_indonesia()
-    geozone_analysis([-10 10], [94 144], [1997, 2015], 'indonesia', {'01','02','03','04','10','11','12'});
+    geozone_analysis([-10 10], [94 144], [1997, 2015], 'Indonesia', {'01','02','03','04','10','11','12'});
+end
+
+function analysis_subsaharian_africa()
+    geozone_analysis([-36 18], [-18 52], [1997, 2015], 'Africa', {'02','03','04','9','10'});
 end
 
 function analysis_australia()
-    geozone_analysis([-44 -9], [112 154], [1997, 2015], 'australia', {'01','02','03','04','10','11','12'});
+    geozone_analysis([-45 -10], [110 155], [1997, 2015], 'Australia', {'11','12','01','02','03'});
+end
+
+function analysis_boreal_central_asia()
+    geozone_analysis([21 70], [31 165], [1997, 2015], 'Boreal and Central Asia', {'01','02','11','12'});
+end
+
+function analysis_south_asia()
+    geozone_analysis([-10 40], [60 144], [1997, 2015], 'South Asia', {'06','07','08','09','10'});
 end
 
 %complete analysis of the fire activity on a given region
@@ -40,7 +54,7 @@ end
 %lonlim: longitude limits
 %years: years limit
 %geozone: description of the zone under study. 'indonesia' for example.
-%wet_months: list of months of the wet season
+%wet_months: list of months of the  season
 function geozone_analysis(latlim, lonlim, years, geozone, wet_months)
     import map.*
     cols = [721+4*lonlim(1), 720+4*lonlim(2)];
@@ -56,25 +70,33 @@ function geozone_analysis(latlim, lonlim, years, geozone, wet_months)
     monthly_mean = monthly_mean_ba(monthly_total, row_names, years);
     plot_annual_cycle(monthly_mean,geozone);
     
-    [compo1, compo2, compo3, pca_timeseries] = perform_pca(bigmat, rows, cols);
-    plot_pca_timeseries(pca_timeseries, years);
+    [compo1, compo2, compo3, pca_timeseries,exp1,exp2,exp3] = perform_pca(bigmat_norm, rows, cols);
+    plot_pca_timeseries(pca_timeseries, years, geozone, exp1, exp2, exp3);
     
     %maps
     [wet_season_ba, dry_season_ba] = get_seasonal_ba(row_names, bigmat, wet_months, rows, cols);
+    annual_avg=findAnnualAvg(bigmat, years, rows, cols);
+    
     
         %plot 12 monthly maps
     plot_monthly_maps(row_names, bigmat, latlim, lonlim, rows, cols, geozone)
     
+    
         %plot 2 seasonal maps
     label='Burned area (m^2)';
-    plot_map(wet_season_ba, latlim, lonlim, strcat(geozone, '_wetseason'), label);
-    plot_map(dry_season_ba, latlim, lonlim, strcat(geozone, '_dryseason'), label);
+    plot_map(wet_season_ba, latlim, lonlim, ['Cumulative burned area - Wet season - ', geozone], label);
+    plot_map(dry_season_ba, latlim, lonlim, ['Cumulative burned area - Dry season - ', geozone], label);
        
+    
+        %plot annual average map
+    label='Burned area (m^2)';
+    plot_map(annual_avg, latlim, lonlim, ['Annual average burned area -', geozone], label);
+        
         %plot 3 principal composant maps
     label='';
-    plot_map(compo1, latlim, lonlim, strcat(geozone, '_PC1'),label);
-    plot_map(compo2, latlim, lonlim, strcat(geozone, '_PC2'),label);
-    plot_map(compo3, latlim, lonlim, strcat(geozone, '_PC3'),label);
+    plot_map(compo1, latlim, lonlim, ['PC1 - ',geozone,'- ', num2str(exp1), '%'],label);
+    plot_map(compo2, latlim, lonlim, ['PC2 - ',geozone,'- ', num2str(exp2), '%'],label);
+    plot_map(compo3, latlim, lonlim, ['PC3 - ',geozone,'- ', num2str(exp3), '%'],label);
 end
 
 %Aggregation of HDF5 datasets
@@ -203,7 +225,7 @@ function plot_annual_cycle(monthly_mean_ba, geozone)
     set(gca, 'XTick', 1:12, 'XTickLabel', {'Jan' 'Feb' 'Mar' 'Apr' 'May' 'Jun' 'Jul' 'Aug' 'Sep' 'Oct' 'Nov' 'Dec'})
     
     % Add title and axis labels
-    titlo=['Annual cycle - average monthly burned area - ' geozone];
+    titlo=['Annual cycle : Average monthly burned area - ' geozone];
     title(titlo)
     xlabel('Month')
     ylabel('Total burned area (m^2)')
@@ -233,7 +255,7 @@ function plot_monthly_total_ba(monthly_total_ba, years, geozone)
     
     
     % Add title and axis labels
-    titlo=['Deviation of monthly burned area' geozone];
+    titlo=['Deviation of monthly burned area - ' geozone];
     title(titlo);
     xlabel('Month')
     ylabel(hAx(1),'Total burned area (m^2)')
@@ -242,9 +264,9 @@ function plot_monthly_total_ba(monthly_total_ba, years, geozone)
 end
 
 %Perform PCA
-function [compo1, compo2, compo3, pca_timeseries] = perform_pca(bigmat, rows, cols) %#ok<*DEFNU>
+function [compo1, compo2, compo3, pca_timeseries, exp1,exp2,exp3] = perform_pca(bigmat, rows, cols) %#ok<*DEFNU>
 
-    coeff = pca(bigmat);
+    [coeff,score,latent,tsquared,explained] = pca(bigmat);
     compo123 = coeff(:,1:3);
     pca_timeseries = bigmat * compo123;
     disp(pca_timeseries);
@@ -252,13 +274,16 @@ function [compo1, compo2, compo3, pca_timeseries] = perform_pca(bigmat, rows, co
     nb_cols = cols(2) - cols(1) + 1;
    
     compo1 = reshape(coeff(:,1), nb_rows, nb_cols);
+    exp1= explained(1);
     compo2 = reshape(coeff(:,2), nb_rows, nb_cols);
+    exp2= explained(2);
     compo3 = reshape(coeff(:,3), nb_rows, nb_cols);
+    exp3= explained(3);
 
 end
 
 %plot the 3 first PC and their timeseries
-function plot_pca_timeseries(pca_timeseries, years)
+function plot_pca_timeseries(pca_timeseries, years, geozone, exp1, exp2, exp3)
     fig=figure;
     nb_months = 12*(years(2)-years(1)+1);
  % Define values for x, y1, and y2
@@ -282,11 +307,11 @@ function plot_pca_timeseries(pca_timeseries, years)
 
 
     % Add title and axis labels
-    titlo = char('Time series of Principal Component 1, 2 & 3');
+    titlo = ['Time series of Principal Component 1, 2 & 3 - ' geozone ' %Variance Explained- ' num2str(exp1) ',' num2str(exp2) ',' num2str(exp3)];
     title(titlo)
     xlabel('Month')
     ylabel('Burned area (m^2)')
-    saveas(fig,['Output/' titlo '.png'])
+    saveas(fig,['Output/' titlo '.png']);
 end
 
 %(unused)plot the elnino trend on the period 1997-2015
@@ -312,12 +337,12 @@ function plot_elnino()
 end
 
 %creates the map for a given matrix and the limts of lat and lon
-function fig=plot_map(matrix, latlim, lonlim, titlo, label)
+function plot_map(matrix, latlim, lonlim, titre, label)
     fig=figure('Color','white');
     dims = size(matrix);
     disp(dims)
 %     figure('Color','white')
-    title(titlo);
+    title(titre);
     [lat, lon]= meshgrat(latlim, lonlim, [dims(1), dims(2)]);
 
     worldmap(latlim, lonlim);
@@ -326,7 +351,8 @@ function fig=plot_map(matrix, latlim, lonlim, titlo, label)
     c = colorbar('southoutside');
     c.Label.String = label;
     plotm(coastlat, coastlon);
-    saveas(fig,['Output/' titlo '.png'])
+    filename = ['Output/' titre '.png'];
+    saveas(fig,filename);
 end
 
 function plot_monthly_maps(row_names, mat, latlim, lonlim, rows, cols, geozone)
@@ -335,6 +361,7 @@ function plot_monthly_maps(row_names, mat, latlim, lonlim, rows, cols, geozone)
     dims = size(mat);
     nb_locs = dims(2);
     nb_months = dims(1);
+    months = {'January' 'February' 'March' 'April' 'May' 'June' 'July' 'August' 'September' 'October' 'November' 'December'};
     for k = 1:12
         monthly_mat = zeros(1,nb_locs);
         for j = 1:nb_months
@@ -346,18 +373,21 @@ function plot_monthly_maps(row_names, mat, latlim, lonlim, rows, cols, geozone)
             end
         end
         monthly_mat = reshape(monthly_mat, nb_rows, nb_cols);
-        titre = strcat('Month #', num2str(k), ' -  ', geozone);
+        titre = ['Cumulative burned area - ' char(months(k)) ' - ' geozone];
         label='Burned area (m^2)';
         plot_map(monthly_mat, latlim, lonlim, titre, label);
     end
     
 end
 
-function annualMatrix = findAnnualAvg(final_matrix, years)
-    dims = size(final_matrix);
+
+function annualMatrix = findAnnualAvg(final_matrix, years, rows, cols)
+    nb_rows = rows(2) - rows(1) + 1;
+    nb_cols = cols(2) - cols(1) + 1;    
+%     dims = size(final_matrix);
     nb_years = years(2)-years(1)+1;
-    annualMatrix=sum(final_matrix, 2)/nb_years;
-    annualMatrix=reshape(annualMatrix, dims(1), dims(2));
+    annualMatrix=sum(final_matrix, 1)/nb_years;
+    annualMatrix = reshape(annualMatrix, nb_rows, nb_cols);
 end
 
 function monthlyMatrices=calcMonthlyAvg(final_matrix, years)
@@ -369,4 +399,3 @@ function monthlyMatrices=calcMonthlyAvg(final_matrix, years)
         monthlyMatrices{i}=tempMonthMat;
     end
 end
-
