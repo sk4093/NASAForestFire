@@ -1,31 +1,35 @@
 %author: NasaFireProject
 
-%%%%%%%%%%%%%%NOTES%%%%%%%%%%%%%%%%%%%%%
-%How it works:
-%for a given region of the planet, look for:
-%latlim: latitude limits
-%monlim: longitude limits
-%years: period of investigation (must be included in 1997-2015)
-%geozone: description of the zone under study. 'indonesia' for example.
-%wet_months: list of the months of the wet season
-
-%create a function analysis_{geozone you are investigating} calling
-%the function geozone_analysis with the proper arguments (cf below)
-
-%add this function to the main() function
-
-%run the script and enjoy
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
+
+ %Instructions
+ %In your current folder make a folder called 'data'
+ %Store all the hdf5 file and the elnino file there
+ %Save the program file in your current folder and run it
+ %The user will be prompted to give inputs. Give input in following format
+ %Latitude Range:[-10 10]
+ %Longitude Range:[94 144]
+ %Year Range:[1997, 2015]
+ %Country:'Indonesia'
+ %Wet_season:{'01','02','03','04','10','11','12'}
+ 
+ 
+ 
+ 
 
 function main2()
-%     analysis_indonesia();
-    analysis_australia();
-    %analysis_subsaharian_africa()
-%     analysis_boreal_central_asia()
-%     analysis_south_asia()
+Latitude_range=input('Latitude Range:');
+Longitude_range=input('Longitude Range:');
+Year_range=input('Year Range:');
+Country=input('Country:','s');
+Wet_season=input('Wet_season:');
+mkdir([Country '_Indonesia_Output']);
+caxis manual
+geozone_analysis(Latitude_range,Longitude_range,Year_range,Country,Wet_season);
+
+
+
 end
 
 %complete analysis on different regions of the globe
@@ -65,7 +69,6 @@ function geozone_analysis(latlim, lonlim, years, geozone, wet_months)
     %charts
     monthly_total_norm = monthly_total_ba(bigmat_norm);
     plot_monthly_total_ba(monthly_total_norm, years, geozone);
-    
     monthly_total = monthly_total_ba(bigmat);
     monthly_mean = monthly_mean_ba(monthly_total, row_names, years);
     plot_annual_cycle(monthly_mean,geozone);
@@ -84,19 +87,25 @@ function geozone_analysis(latlim, lonlim, years, geozone, wet_months)
     
         %plot 2 seasonal maps
     label='Burned area (m^2)';
-    plot_map(wet_season_ba, latlim, lonlim, ['Cumulative burned area - Wet season - ', geozone], label);
-    plot_map(dry_season_ba, latlim, lonlim, ['Cumulative burned area - Dry season - ', geozone], label);
+    cmax=max(wet_season_ba(:))
+    plot_map(wet_season_ba, latlim, lonlim, ['Cumulative burned area - Wet season - ', geozone], label,geozone,cmax);
+    plot_map(dry_season_ba, latlim, lonlim, ['Cumulative burned area - Dry season - ', geozone], label,geozone,cmax);
        
     
         %plot annual average map
     label='Burned area (m^2)';
-    plot_map(annual_avg, latlim, lonlim, ['Annual average burned area -', geozone], label);
+    cmax =max(annual_avg(:))
+    plot_map(annual_avg, latlim, lonlim, ['Annual average burned area -', geozone], label,geozone,cmax);
         
         %plot 3 principal composant maps
     label='';
-    plot_map(compo1, latlim, lonlim, ['PC1 - ',geozone,'- ', num2str(exp1), '%'],label);
-    plot_map(compo2, latlim, lonlim, ['PC2 - ',geozone,'- ', num2str(exp2), '%'],label);
-    plot_map(compo3, latlim, lonlim, ['PC3 - ',geozone,'- ', num2str(exp3), '%'],label);
+    cmax=max([max(compo1(:)) max(compo2(:)) max(compo3(:))]);
+   
+    plot_map(compo1, latlim, lonlim, ['PC1 - ',geozone,'- ', num2str(exp1), '%'],label,geozone,cmax);
+    cmax=max([max(compo1(:)) max(compo2(:)) max(compo3(:))]);
+    plot_map(compo2, latlim, lonlim, ['PC2 - ',geozone,'- ', num2str(exp2), '%'],label,geozone,cmax);
+    cmax=max([max(compo1(:)) max(compo2(:)) max(compo3(:))]);
+    plot_map(compo3, latlim, lonlim, ['PC3 - ',geozone,'- ', num2str(exp3), '%'],label,geozone,cmax);
 end
 
 %Aggregation of HDF5 datasets
@@ -229,7 +238,7 @@ function plot_annual_cycle(monthly_mean_ba, geozone)
     title(titlo)
     xlabel('Month')
     ylabel('Total burned area (m^2)')
-    saveas(fig,['Output/' titlo '.png'])
+    saveas(fig,[geozone '_Output/' titlo '.png'])
 end
 
 function plot_monthly_total_ba(monthly_total_ba, years, geozone)
@@ -259,8 +268,8 @@ function plot_monthly_total_ba(monthly_total_ba, years, geozone)
     title(titlo);
     xlabel('Month')
     ylabel(hAx(1),'Total burned area (m^2)')
-    ylabel(hAx(2),'Oceanic Niño Index (ONI)')
-    saveas(fig,['Output/' titlo '.png'])
+    ylabel(hAx(2),'Oceanic NiÃ±o Index (ONI)')
+    saveas(fig,[geozone '_Output/' titlo '.png'])
 end
 
 %Perform PCA
@@ -311,7 +320,7 @@ function plot_pca_timeseries(pca_timeseries, years, geozone, exp1, exp2, exp3)
     title(titlo)
     xlabel('Month')
     ylabel('Burned area (m^2)')
-    saveas(fig,['Output/' titlo '.png']);
+    saveas(fig,[geozone '_Output/' titlo '.png']);
 end
 
 %(unused)plot the elnino trend on the period 1997-2015
@@ -332,12 +341,13 @@ function plot_elnino()
     titlo = char('ElNino Index monthly value 1997 - 2015');
     title(titlo)
     xlabel('Month')
-    ylabel('Oceanic Niño Index (ONI)')
-    saveas(fig,['Output/' titlo '.png'])
+    ylabel('Oceanic NiÃ±o Index (ONI)')
+    saveas(fig,[geozone '_Output/' titlo '.png'])
 end
 
 %creates the map for a given matrix and the limts of lat and lon
-function plot_map(matrix, latlim, lonlim, titre, label)
+function plot_map(matrix, latlim, lonlim, titre, label, geozone,cmax)
+    
     fig=figure('Color','white');
     dims = size(matrix);
     disp(dims)
@@ -346,16 +356,20 @@ function plot_map(matrix, latlim, lonlim, titre, label)
     [lat, lon]= meshgrat(latlim, lonlim, [dims(1), dims(2)]);
 
     worldmap(latlim, lonlim);
+    caxis manual
+    caxis([0 cmax]);
     load coastlines
     surfacem(lat, lon, matrix);
     c = colorbar('southoutside');
     c.Label.String = label;
     plotm(coastlat, coastlon);
-    filename = ['Output/' titre '.png'];
+    filename = [geozone '_Output/' titre '.png'];
     saveas(fig,filename);
 end
 
 function plot_monthly_maps(row_names, mat, latlim, lonlim, rows, cols, geozone)
+    cmax=max(mat(:));
+    caxis([0, cmax]);
     nb_rows = rows(2) - rows(1) + 1;
     nb_cols = cols(2) - cols(1) + 1;
     dims = size(mat);
@@ -375,7 +389,10 @@ function plot_monthly_maps(row_names, mat, latlim, lonlim, rows, cols, geozone)
         monthly_mat = reshape(monthly_mat, nb_rows, nb_cols);
         titre = ['Cumulative burned area - ' char(months(k)) ' - ' geozone];
         label='Burned area (m^2)';
-        plot_map(monthly_mat, latlim, lonlim, titre, label);
+        caxis manual
+        caxis([0 cmax]);
+        plot_map(monthly_mat, latlim, lonlim, titre, label,geozone,cmax);
+        
     end
     
 end
